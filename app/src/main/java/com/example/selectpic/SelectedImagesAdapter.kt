@@ -27,4 +27,5 @@ class SelectedImagesAdapter(private val selectedImages: List<Uri>) : RecyclerVie
     }
 
     override fun getItemCount(): Int = selectedImages.size
+
 }
