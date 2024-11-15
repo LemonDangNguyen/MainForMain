@@ -53,4 +53,7 @@ dependencies {
 
     implementation ("com.github.bumptech.glide:glide:4.13.2")
     annotationProcessor ("com.github.bumptech.glide:compiler:4.13.2")
+
+    implementation ("com.github.hypersoftdev:PuzzleLayout:1.0.2")
+
 }

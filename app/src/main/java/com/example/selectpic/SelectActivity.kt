@@ -17,7 +17,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.selectpic.databinding.ActivitySelectBinding
 
-class SelectActivity : AppCompatActivity() {
+class SelectActivity : BaseActivity() {
     private val binding by lazy { ActivitySelectBinding.inflate(layoutInflater) }
     private val imagePaths = mutableListOf<String>()
     private val selectedImagesList = mutableListOf<Uri>()
@@ -32,7 +32,6 @@ class SelectActivity : AppCompatActivity() {
     private val checkPermission =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             if (permissions.all { it.value }) {
-
                 loadImages()
             }
         }
@@ -40,30 +39,35 @@ class SelectActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
-
         binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-
-
         val gridLayoutManager = GridLayoutManager(this, 3)
         binding.allImagesRecyclerView.layoutManager = gridLayoutManager
 
-        pickImagesLauncher = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+          pickImagesLauncher = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(9)) { uris ->
             if (uris.isNotEmpty()) {
                 selectedImagesList.clear()
                 selectedImagesList.addAll(uris)
                 selectedImagesAdapter.notifyDataSetChanged()
                 updateSelectedCount()
+                imageAdapter.updateSelection(selectedImagesList)
             }
         }
-        if (checkStoragePermission()) {
+            if (checkStoragePermission()) {
             loadImages()
-
         } else {
             checkPermission.launch(storagePer)
         }
+
         setupSelectedImagesRecyclerView()
+
         binding.btnAlbum.setOnClickListener {
             pickImagesLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+        binding.clearImgList.setOnClickListener {
+            selectedImagesList.clear()
+            selectedImagesAdapter.notifyDataSetChanged()
+            updateSelectedCount()
+            imageAdapter.updateSelection(selectedImagesList)
         }
     }
 
@@ -78,6 +82,7 @@ class SelectActivity : AppCompatActivity() {
     private fun updateSelectedCount() {
         binding.textViewCountItem.text = selectedImagesList.size.toString()
     }
+
     private fun checkStoragePermission(): Boolean {
         return storagePer.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
@@ -97,11 +102,22 @@ class SelectActivity : AppCompatActivity() {
             }
             imagePaths.reverse()
 
-            imageAdapter = ImageAdapter(this, imagePaths)
+            imageAdapter = ImageAdapter(this, imagePaths) { uri, isSelected ->
+                if (isSelected) {
+                    if (!selectedImagesList.contains(uri) && selectedImagesList.size < 9) {
+                        selectedImagesList.add(uri)
+                        selectedImagesAdapter.notifyDataSetChanged()
+                        updateSelectedCount()
+                        imageAdapter.updateSelection(selectedImagesList)
+                    }
+                } else {
+                    selectedImagesList.remove(uri)
+                    selectedImagesAdapter.notifyDataSetChanged()
+                    updateSelectedCount()
+                    imageAdapter.updateSelection(selectedImagesList)
+                }
+            }
             binding.allImagesRecyclerView.adapter = imageAdapter
         }
-
-
     }
-
 }
