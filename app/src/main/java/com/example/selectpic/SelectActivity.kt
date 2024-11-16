@@ -1,6 +1,7 @@
 package com.example.selectpic
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
@@ -80,8 +81,15 @@ class SelectActivity : BaseActivity() {
             layoutManager = LinearLayoutManager(this@SelectActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = selectedImagesAdapter
         }
-    }
 
+       binding.btnBack.setOnClickListener {
+           onBackPressed()
+       }
+        binding.btnAlbum.setOnClickListener {
+            val intent = Intent(this, SelectAlbum::class.java)
+            startActivity(intent)
+        }
+    }
     private fun loadImages() {
         val uri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -91,14 +99,12 @@ class SelectActivity : BaseActivity() {
             MediaStore.Images.Media.DATA,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME
         )
-
         contentResolver.query(uri, projection, null, null, "${MediaStore.Images.Media.DATE_TAKEN} DESC")?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
             val albumIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-
             while (cursor.moveToNext()) {
                 images.add(
                     ImageModel(
@@ -113,17 +119,14 @@ class SelectActivity : BaseActivity() {
             imageAdapter.notifyDataSetChanged()
         }
     }
-
     private fun hasStoragePermissions() = storagePermissions.all {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
-
     private fun updateSelectedAdapters() {
         selectedImagesAdapter.notifyDataSetChanged()
         imageAdapter.updateSelection(selectedImages)
         updateSelectedCount()
     }
-
     private fun updateSelectedCount() {
         binding.textViewCountItem.text = selectedImages.size.toString()
     }

@@ -27,6 +27,7 @@
             android:clickable="true"
             android:focusable="true"
             android:gravity="left"
+            android:textSize="18sp"
             android:text="Cancel"
             android:textColor="#8D99A1" />
 
@@ -36,6 +37,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
+            android:textSize="18sp"
             android:text="Photo"
             android:textStyle="bold" />
 
@@ -46,6 +48,7 @@
             android:layout_marginRight="15dp"
             android:layout_weight="1"
             android:gravity="right"
+            android:textSize="18sp"
             android:text="Album"
             android:textColor="#3B83FC" />
     </LinearLayout>
@@ -100,7 +103,7 @@
             android:id="@+id/setMaxItem"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="/10"
+            android:text="/9"
             android:layout_weight="1"
             android:textColor="#000000"
             android:textSize="16sp" />
