@@ -14,7 +14,10 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 
-class SelectedImagesAdapter(private val context: Context, private val selectedImages: List<Uri>) : RecyclerView.Adapter<SelectedImagesAdapter.SelectedImageViewHolder>() {
+class SelectedImagesAdapter(
+    private val context: Context,
+    private val selectedImages: List<ImageModel>
+) : RecyclerView.Adapter<SelectedImagesAdapter.SelectedImageViewHolder>() {
 
     inner class SelectedImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.selected_image)
@@ -26,14 +29,11 @@ class SelectedImagesAdapter(private val context: Context, private val selectedIm
     }
 
     override fun onBindViewHolder(holder: SelectedImageViewHolder, position: Int) {
-        Log.d("2tdp", "onBindViewHolder: ${selectedImages.size}")
-        Glide.with(context)
-            .load(selectedImages[position].toString())
-            .into(holder.imageView)
+        val image = selectedImages[position]
 
-
+        // Hiển thị ảnh đã chọn
+        Glide.with(context).load(image.filePath).into(holder.imageView)
     }
 
     override fun getItemCount(): Int = selectedImages.size
-
 }

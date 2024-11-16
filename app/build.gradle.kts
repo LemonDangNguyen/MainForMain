@@ -55,5 +55,6 @@ dependencies {
     annotationProcessor ("com.github.bumptech.glide:compiler:4.13.2")
 
     implementation ("com.github.hypersoftdev:PuzzleLayout:1.0.2")
+    implementation ("com.google.android.material:material:1.9.0")
 
 }
