@@ -15,23 +15,21 @@ class ImageAdapter(
     private val imagePaths: List<String>,
     private val onItemSelected: (Uri, Boolean) -> Unit
 ) : RecyclerView.Adapter<ImageAdapter.ImageViewHolder>() {
-
     private val selectedImagesMap = mutableMapOf<Uri, Int>()  // Lưu thứ tự của ảnh được chọn
-
     inner class ImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.imageView)
         val selectionOrder: TextView = view.findViewById(R.id.selectionOrder)  // TextView để hiển thị thứ tự
     }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ImageViewHolder {
         val view = LayoutInflater.from(context).inflate(R.layout.item_image, parent, false)
         return ImageViewHolder(view)
     }
-
     override fun onBindViewHolder(holder: ImageViewHolder, position: Int) {
         val imagePath = imagePaths[position]
         val uri = Uri.parse(imagePath)
+
         Glide.with(context).load(imagePath).error(R.drawable.noimage).centerCrop().into(holder.imageView)
+
         if (selectedImagesMap.containsKey(uri)) {
             holder.selectionOrder.text = selectedImagesMap[uri].toString()
             holder.selectionOrder.visibility = View.VISIBLE
@@ -44,7 +42,6 @@ class ImageAdapter(
             onItemSelected(uri, isSelected)  // Xử lý chọn/bỏ chọn
         }
     }
-
     override fun getItemCount(): Int = imagePaths.size
 
     // Cập nhật thứ tự khi chọn lại ảnh

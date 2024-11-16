@@ -72,7 +72,7 @@ class SelectActivity : BaseActivity() {
     }
 
     private fun setupSelectedImagesRecyclerView() {
-        selectedImagesAdapter = SelectedImagesAdapter(selectedImagesList)
+        selectedImagesAdapter = SelectedImagesAdapter(this, selectedImagesList)
         binding.selectedImagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@SelectActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = selectedImagesAdapter
