@@ -69,7 +69,8 @@ class SelectActivity : BaseActivity() {
 
         binding.btnAlbum.setOnClickListener {
             val intent = Intent(this, SelectAlbum::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            //intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            intent.putParcelableArrayListExtra("SELECTED_IMAGES", ArrayList(selectedImages))
             startActivity(intent)
             finish()
         }
@@ -94,7 +95,12 @@ class SelectActivity : BaseActivity() {
             adapter = imageAdapter
         }
 
-        selectedImagesAdapter = SelectedImagesAdapter(this, selectedImages)
+        selectedImagesAdapter = SelectedImagesAdapter(this, selectedImages) { imageToRemove ->
+            selectedImages.remove(imageToRemove)
+            selectedImagesAdapter.notifyDataSetChanged()
+            imageAdapter.updateSelection(selectedImages)
+            updateSelectedCount()
+        }
         binding.selectedImagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@SelectActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = selectedImagesAdapter

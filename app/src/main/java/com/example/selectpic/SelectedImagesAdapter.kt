@@ -16,23 +16,29 @@ import com.bumptech.glide.request.transition.Transition
 
 class SelectedImagesAdapter(
     private val context: Context,
-    private val selectedImages: List<ImageModel>
+    private val selectedImages: MutableList<ImageModel>,
+    private val onRemoveImage: (ImageModel) -> Unit
 ) : RecyclerView.Adapter<SelectedImagesAdapter.SelectedImageViewHolder>() {
 
     inner class SelectedImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.selected_image)
+        val deleteButton: ImageView = view.findViewById(R.id.ic_delete)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SelectedImageViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_selected_image, parent, false)
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_selected_image, parent, false)
         return SelectedImageViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: SelectedImageViewHolder, position: Int) {
         val image = selectedImages[position]
-
         Glide.with(context).load(image.filePath).into(holder.imageView)
+        holder.deleteButton.setOnClickListener {
+            onRemoveImage(image) 
+        }
     }
 
     override fun getItemCount(): Int = selectedImages.size
 }
+
