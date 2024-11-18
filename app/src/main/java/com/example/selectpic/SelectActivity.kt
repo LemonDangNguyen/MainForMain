@@ -9,8 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Toast
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -19,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.selectpic.databinding.ActivitySelectBinding
 
 class SelectActivity : BaseActivity() {
+
     private val binding by lazy { ActivitySelectBinding.inflate(layoutInflater) }
     private val images = mutableListOf<ImageModel>()
     private val selectedImages = mutableListOf<ImageModel>()
@@ -32,16 +32,19 @@ class SelectActivity : BaseActivity() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             if (permissions.all { it.value }) {
-                loadImages()
+                loadImages() // Load images if permissions are granted
             } else {
                 Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
             }
         }
 
+    private var albumName: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
 
+        albumName = intent.getStringExtra("ALBUM_NAME")
         setupRecyclerViews()
 
         if (hasStoragePermissions()) {
@@ -56,6 +59,21 @@ class SelectActivity : BaseActivity() {
             updateSelectedCount()
             imageAdapter.updateSelection(selectedImages)
         }
+
+        binding.btnBack.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+        }
+
+        binding.btnAlbum.setOnClickListener {
+            val intent = Intent(this, SelectAlbum::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            startActivity(intent)
+            finish()
+        }
+
     }
 
     private fun setupRecyclerViews() {
@@ -81,14 +99,6 @@ class SelectActivity : BaseActivity() {
             layoutManager = LinearLayoutManager(this@SelectActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = selectedImagesAdapter
         }
-
-       binding.btnBack.setOnClickListener {
-           onBackPressed()
-       }
-        binding.btnAlbum.setOnClickListener {
-            val intent = Intent(this, SelectAlbum::class.java)
-            startActivity(intent)
-        }
     }
     private fun loadImages() {
         val uri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
@@ -99,12 +109,19 @@ class SelectActivity : BaseActivity() {
             MediaStore.Images.Media.DATA,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME
         )
-        contentResolver.query(uri, projection, null, null, "${MediaStore.Images.Media.DATE_TAKEN} DESC")?.use { cursor ->
+        val (selection, selectionArgs) = if (albumName == "Recent" || albumName == null) {
+            null to null
+        } else {
+            "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?" to arrayOf(albumName)
+        }
+
+        contentResolver.query(uri, projection, selection, selectionArgs, "${MediaStore.Images.Media.DATE_TAKEN} DESC")?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
             val albumIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+            images.clear()
             while (cursor.moveToNext()) {
                 images.add(
                     ImageModel(
@@ -116,7 +133,10 @@ class SelectActivity : BaseActivity() {
                     )
                 )
             }
-            imageAdapter.notifyDataSetChanged()
+
+            imageAdapter.notifyDataSetChanged() // Notify adapter to update UI
+        } ?: run {
+            Toast.makeText(this, "Failed to load images", Toast.LENGTH_SHORT).show()
         }
     }
     private fun hasStoragePermissions() = storagePermissions.all {
@@ -131,4 +151,3 @@ class SelectActivity : BaseActivity() {
         binding.textViewCountItem.text = selectedImages.size.toString()
     }
 }
-

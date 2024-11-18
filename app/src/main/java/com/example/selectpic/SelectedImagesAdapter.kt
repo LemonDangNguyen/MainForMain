@@ -31,7 +31,6 @@ class SelectedImagesAdapter(
     override fun onBindViewHolder(holder: SelectedImageViewHolder, position: Int) {
         val image = selectedImages[position]
 
-        // Hiển thị ảnh đã chọn
         Glide.with(context).load(image.filePath).into(holder.imageView)
     }
 

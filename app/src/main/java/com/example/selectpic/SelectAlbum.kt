@@ -37,14 +37,12 @@ class SelectAlbum : BaseActivity() {
                 Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
             }
         }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
 
         setupRecyclerView()
 
-        // Kiểm tra quyền truy cập
         if (hasStoragePermissions()) {
             loadAlbums()
         } else {
@@ -52,17 +50,22 @@ class SelectAlbum : BaseActivity() {
         }
 
         binding.btnBack.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
             finish()
         }
+
     }
 
     private fun setupRecyclerView() {
         albumAdapter = AlbumAdapter(this, albumList) { album ->
-//            val intent = Intent(this, ImageGalleryActivity::class.java).apply {
-//                putExtra("ALBUM_NAME", album.name)
-//            }
-//            startActivity(intent)
+            val intent = Intent(this, SelectActivity::class.java)
+            intent.putExtra("ALBUM_NAME", album.name)
+            startActivity(intent)
+            finish()
         }
+
 
         binding.selectedAlbum.apply {
             layoutManager = GridLayoutManager(this@SelectAlbum, 1)
@@ -88,7 +91,6 @@ class SelectAlbum : BaseActivity() {
                 Toast.makeText(this, "No albums found", Toast.LENGTH_SHORT).show()
                 return
             }
-
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
@@ -96,14 +98,10 @@ class SelectAlbum : BaseActivity() {
             while (cursor.moveToNext()) {
                 val albumName = cursor.getString(nameIndex)
                 val coverImagePath = cursor.getString(pathIndex)
-
-                // Update "Recent" album data
                 if (recentCoverImagePath == null) {
                     recentCoverImagePath = coverImagePath // First image is used as cover
                 }
                 recentImagesCount++
-
-                // Handle individual albums
                 if (!albumMap.containsKey(albumName)) {
                     albumMap[albumName] = AlbumModel(
                         name = albumName,
@@ -115,8 +113,6 @@ class SelectAlbum : BaseActivity() {
                         (albumMap[albumName]?.numberOfImages ?: 0) + 1
                 }
             }
-
-            // Add "Recent" album at the top
             if (recentImagesCount > 0) {
                 albumList.add(
                     0, // Add at the top
@@ -127,8 +123,6 @@ class SelectAlbum : BaseActivity() {
                     )
                 )
             }
-
-            // Add the rest of the albums
             albumList.addAll(albumMap.values)
             albumAdapter.notifyDataSetChanged()
         } ?: run {
