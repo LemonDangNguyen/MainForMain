@@ -59,6 +59,9 @@ class SelectActivity : BaseActivity() {
             updateSelectedCount()
             imageAdapter.updateSelection(selectedImages)
         }
+        binding.nextSelect.setOnClickListener {
+
+        }
 
         binding.btnBack.setOnClickListener {
             val intent = Intent(this, MainActivity::class.java)

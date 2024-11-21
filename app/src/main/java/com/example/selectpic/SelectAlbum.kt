@@ -56,6 +56,7 @@ class SelectAlbum : BaseActivity() {
             finish()
         }
 
+
     }
 
     private fun setupRecyclerView() {
@@ -71,6 +72,9 @@ class SelectAlbum : BaseActivity() {
             layoutManager = GridLayoutManager(this@SelectAlbum, 1)
             adapter = albumAdapter
         }
+
+
+
     }
 
     private fun loadAlbums() {
