@@ -21,7 +21,7 @@ class SelectedImagesAdapter(
 ) : RecyclerView.Adapter<SelectedImagesAdapter.SelectedImageViewHolder>() {
 
     inner class SelectedImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val imageView: ImageView = view.findViewById(R.id.selected_image)
+        val imageView: ImageView = view.findViewById(R.id.ifv)
         val deleteButton: ImageView = view.findViewById(R.id.ic_delete)
     }
 
@@ -35,7 +35,7 @@ class SelectedImagesAdapter(
         val image = selectedImages[position]
         Glide.with(context).load(image.filePath).into(holder.imageView)
         holder.deleteButton.setOnClickListener {
-            onRemoveImage(image) 
+            onRemoveImage(image)
         }
     }
 

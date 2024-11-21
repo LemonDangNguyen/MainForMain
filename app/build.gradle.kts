@@ -56,5 +56,6 @@ dependencies {
 
     implementation ("com.github.hypersoftdev:PuzzleLayout:1.0.2")
     implementation ("com.google.android.material:material:1.9.0")
+    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.0")
 
 }

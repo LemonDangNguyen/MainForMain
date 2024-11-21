@@ -19,7 +19,7 @@ class ImageAdapter(
     private val selectedImagesMap = mutableMapOf<Long, Int>() // Lưu thứ tự chọn theo id ảnh
 
     inner class ImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val imageView: ImageView = view.findViewById(R.id.imageView)
+        val imageView: ImageView = view.findViewById(R.id.ifv)
         val selectionOrder: TextView = view.findViewById(R.id.selectionOrder)
     }
 

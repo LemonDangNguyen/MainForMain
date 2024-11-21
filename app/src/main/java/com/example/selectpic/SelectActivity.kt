@@ -1,13 +1,17 @@
 package com.example.selectpic
 
 import android.Manifest
+import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.selectpic.databinding.ActivitySelectBinding
+import com.example.selectpic.databinding.DialogExitBinding
 
 class SelectActivity : BaseActivity() {
 
@@ -24,7 +29,7 @@ class SelectActivity : BaseActivity() {
     private val selectedImages = mutableListOf<ImageModel>()
     private lateinit var imageAdapter: ImageAdapter
     private lateinit var selectedImagesAdapter: SelectedImagesAdapter
-
+    private var selectedImage: List<ImageModel> = mutableListOf()
     private val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     else arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -60,14 +65,14 @@ class SelectActivity : BaseActivity() {
             imageAdapter.updateSelection(selectedImages)
         }
         binding.nextSelect.setOnClickListener {
-
+            val intent = Intent(this, HomeCollage::class.java)
+            intent.putParcelableArrayListExtra("SELECTED_IMAGES", ArrayList(selectedImages))
+            startActivity(intent)
+            finish()
         }
 
         binding.btnBack.setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            finish()
+            onBackPressed()
         }
 
         binding.btnAlbum.setOnClickListener {
@@ -138,7 +143,12 @@ class SelectActivity : BaseActivity() {
                         dateTaken = cursor.getLong(dateIndex),
                         fileName = cursor.getString(nameIndex),
                         filePath = cursor.getString(pathIndex),
-                        album = cursor.getString(albumIndex)
+                        album = cursor.getString(albumIndex),
+                        selected = false,
+                        uri = Uri.withAppendedPath(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            cursor.getLong(idIndex).toString()
+                        )
                     )
                 )
             }
@@ -158,5 +168,29 @@ class SelectActivity : BaseActivity() {
     }
     private fun updateSelectedCount() {
         binding.textViewCountItem.text = selectedImages.size.toString()
+    }
+     override fun onBackPressed(){
+
+         val binding2 = DialogExitBinding.inflate(layoutInflater)
+         val dialog2 = Dialog(this)
+         dialog2.setContentView(binding2.root)
+         val window = dialog2.window
+         window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+         window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+         dialog2.setCanceledOnTouchOutside(false)
+         dialog2.setCancelable(false)
+         binding2.btnExit.setOnClickListener{
+             dialog2.dismiss()
+
+             val intent = Intent(this, MainActivity::class.java)
+             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+             startActivity(intent)
+             finish()
+             super.onBackPressed()
+         }
+         binding2.btnStay.setOnClickListener{
+             dialog2.dismiss()
+         }
+         dialog2.show()
     }
 }
