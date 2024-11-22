@@ -15,12 +15,19 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.selectpic.databinding.ActivitySelectBinding
 import com.example.selectpic.databinding.DialogExitBinding
+import com.example.selectpic.ddat.MediaStoreMediaImages
+import com.example.selectpic.ddat.RepositoryMediaImages
+import com.example.selectpic.ddat.UseCaseMediaImageDetail
+import com.example.selectpic.ddat.ViewModelMediaImageDetail
+import com.example.selectpic.ddat.ViewModelMediaImageDetailProvider
+import com.hypersoft.puzzlelayouts.app.features.media.presentation.images.adapter.recyclerView.AdapterMediaImageDetail
 
 class SelectActivity : BaseActivity() {
 
@@ -34,6 +41,13 @@ class SelectActivity : BaseActivity() {
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     else arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
 
+    private val mediaStoreMediaImages by lazy { MediaStoreMediaImages(contentResolver) }
+    private val repositoryMediaImages by lazy { RepositoryMediaImages(mediaStoreMediaImages) }
+    private val useCaseMediaImageDetail by lazy { UseCaseMediaImageDetail(repositoryMediaImages) }
+    private val viewModelMediaImageDetail by viewModels<ViewModelMediaImageDetail> { ViewModelMediaImageDetailProvider(useCaseMediaImageDetail) }
+
+    private val itemClick: ((Uri) -> Unit) = { viewModelMediaImageDetail.imageClick(it) }
+    private val adapterEnhanceGalleryDetail by lazy { AdapterMediaImageDetail(itemClick) }
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             if (permissions.all { it.value }) {
@@ -193,5 +207,9 @@ class SelectActivity : BaseActivity() {
          }
          dialog2.show()
     }
-    
+
+
+
+
+
 }
