@@ -68,17 +68,11 @@ class SelectAlbum : BaseActivity() {
             startActivity(intent)
             finish()
         }
-
-
         binding.selectedAlbum.apply {
             layoutManager = GridLayoutManager(this@SelectAlbum, 1)
             adapter = albumAdapter
         }
-
-
-
     }
-
     private fun loadAlbums() {
         val uri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -86,7 +80,6 @@ class SelectAlbum : BaseActivity() {
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.DATA
         )
-
         val selection = "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} IS NOT NULL"
         val albumMap = mutableMapOf<String, AlbumModel>()
         var recentImagesCount = 0

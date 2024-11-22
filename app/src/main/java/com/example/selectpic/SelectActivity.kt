@@ -79,10 +79,16 @@ class SelectActivity : BaseActivity() {
             imageAdapter.updateSelection(selectedImages)
         }
         binding.nextSelect.setOnClickListener {
-            val intent = Intent(this, HomeCollage::class.java)
-            intent.putParcelableArrayListExtra("SELECTED_IMAGES", ArrayList(selectedImages))
-            startActivity(intent)
-            finish()
+            if(selectedImages.isNotEmpty()){
+
+                val intent = Intent(this, HomeCollage::class.java)
+                intent.putParcelableArrayListExtra("SELECTED_IMAGES", ArrayList(selectedImages))
+                startActivity(intent)
+                finish()
+            }else{
+                Toast.makeText(this, "Please select at least 3 images", Toast.LENGTH_SHORT).show()
+            }
+
         }
 
         binding.btnBack.setOnClickListener {
@@ -102,21 +108,23 @@ class SelectActivity : BaseActivity() {
     private fun setupRecyclerViews() {
         imageAdapter = ImageAdapter(this, images) { image, isSelected ->
             if (isSelected) {
-                if (!selectedImages.contains(image) && selectedImages.size < 9) {
-                    selectedImages.add(image)
-                    updateSelectedAdapters()
+                if (!selectedImages.contains(image)) {
+                    if (selectedImages.size < 9) {
+                        selectedImages.add(image)
+                        updateSelectedAdapters()
+                    } else {
+                        Toast.makeText(this, "You can select up to 9 images only", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } else {
                 selectedImages.remove(image)
                 updateSelectedAdapters()
             }
         }
-
         binding.allImagesRecyclerView.apply {
             layoutManager = GridLayoutManager(this@SelectActivity, 3)
             adapter = imageAdapter
         }
-
         selectedImagesAdapter = SelectedImagesAdapter(this, selectedImages) { imageToRemove ->
             selectedImages.remove(imageToRemove)
             selectedImagesAdapter.notifyDataSetChanged()
@@ -128,6 +136,9 @@ class SelectActivity : BaseActivity() {
             adapter = selectedImagesAdapter
         }
     }
+
+
+
     private fun loadImages() {
         val uri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -166,7 +177,6 @@ class SelectActivity : BaseActivity() {
                     )
                 )
             }
-
             imageAdapter.notifyDataSetChanged() // Notify adapter to update UI
         } ?: run {
             Toast.makeText(this, "Failed to load images", Toast.LENGTH_SHORT).show()
