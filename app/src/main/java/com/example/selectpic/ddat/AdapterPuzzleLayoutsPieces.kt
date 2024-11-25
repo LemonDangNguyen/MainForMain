@@ -1,5 +1,6 @@
 package com.hypersoft.puzzlelayouts.app.features.layouts.presentation.adapter
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -26,6 +27,10 @@ class AdapterPuzzleLayoutsPieces(private val itemClick: (puzzleLayout: PuzzleLay
         val currentItem = puzzleLayouts[position]
         bindViews(holder, currentItem)
 
+        holder.binding.puzzle.apply {
+            setLineColor(Color.BLACK)
+            setPiecePadding(4.0F)
+        }
         holder.binding.root.setOnClickListener {
             var theme = 0
             if (currentItem is NumberSlantLayout) {

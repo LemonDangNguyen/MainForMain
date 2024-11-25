@@ -4,4 +4,6 @@
     <color name="white">#FFFFFFFF</color>
 
     <color name="dark_grey">#a9a9a9</color>
+    <color name="smoke">#8D99A1</color>
+    <color name="grey">#C3C2C1</color>
 </resources>

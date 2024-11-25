@@ -52,7 +52,7 @@ dependencies {
 
     implementation ("com.github.bumptech.glide:glide:4.13.2")
     annotationProcessor ("com.github.bumptech.glide:compiler:4.13.2")
-
+    implementation ("ly.img.android:photo-editor-sdk:10.0.0")
     implementation ("com.github.hypersoftdev:PuzzleLayout:1.0.2")
     implementation ("com.google.android.material:material:1.9.0")
     implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.0")
