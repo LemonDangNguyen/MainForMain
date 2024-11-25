@@ -39,6 +39,7 @@ android {
         viewBinding = true
     }
 }
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
