@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -30,22 +31,18 @@ import com.example.selectpic.ddat.ViewModelMediaImageDetailProvider
 import com.hypersoft.puzzlelayouts.app.features.media.presentation.images.adapter.recyclerView.AdapterMediaImageDetail
 
 class SelectActivity : BaseActivity() {
-
     private val binding by lazy { ActivitySelectBinding.inflate(layoutInflater) }
     private val images = mutableListOf<ImageModel>()
-    private val selectedImages = mutableListOf<ImageModel>()
+    private var selectedImages = mutableListOf<ImageModel>()
     private lateinit var imageAdapter: ImageAdapter
     private lateinit var selectedImagesAdapter: SelectedImagesAdapter
-    private var selectedImage: List<ImageModel> = mutableListOf()
     private val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     else arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
-
     private val mediaStoreMediaImages by lazy { MediaStoreMediaImages(contentResolver) }
     private val repositoryMediaImages by lazy { RepositoryMediaImages(mediaStoreMediaImages) }
     private val useCaseMediaImageDetail by lazy { UseCaseMediaImageDetail(repositoryMediaImages) }
     private val viewModelMediaImageDetail by viewModels<ViewModelMediaImageDetail> { ViewModelMediaImageDetailProvider(useCaseMediaImageDetail) }
-
     private val itemClick: ((Uri) -> Unit) = { viewModelMediaImageDetail.imageClick(it) }
     private val adapterEnhanceGalleryDetail by lazy { AdapterMediaImageDetail(itemClick) }
     private val permissionLauncher =
@@ -56,9 +53,7 @@ class SelectActivity : BaseActivity() {
                 Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
             }
         }
-
     private var albumName: String? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
@@ -71,7 +66,10 @@ class SelectActivity : BaseActivity() {
         } else {
             permissionLauncher.launch(storagePermissions)
         }
-
+        setUpListener()
+        initObservers()
+    }
+    private fun setUpListener(){
         binding.clearImgList.setOnClickListener {
             selectedImages.clear()
             selectedImagesAdapter.notifyDataSetChanged()
@@ -79,8 +77,7 @@ class SelectActivity : BaseActivity() {
             imageAdapter.updateSelection(selectedImages)
         }
         binding.nextSelect.setOnClickListener {
-            if(selectedImages.isNotEmpty()){
-
+            if(selectedImages.size >= 3){
                 val intent = Intent(this, HomeCollage::class.java)
                 intent.putParcelableArrayListExtra("SELECTED_IMAGES", ArrayList(selectedImages))
                 startActivity(intent)
@@ -90,11 +87,9 @@ class SelectActivity : BaseActivity() {
             }
 
         }
-
         binding.btnBack.setOnClickListener {
             onBackPressed()
         }
-
         binding.btnAlbum.setOnClickListener {
             val intent = Intent(this, SelectAlbum::class.java)
             //intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -102,7 +97,16 @@ class SelectActivity : BaseActivity() {
             startActivity(intent)
             finish()
         }
+    }
+    private fun initObservers() {
+        viewModelMediaImageDetail.imagesLiveData.observe(this) {
+            adapterEnhanceGalleryDetail.submitList(it)
+        }
 
+
+        viewModelMediaImageDetail.clickedImagesLiveData.observe(this) { clickedImagess ->
+            selectedImages = clickedImagess as MutableList<ImageModel>
+        }
     }
 
     private fun setupRecyclerViews() {
@@ -136,9 +140,6 @@ class SelectActivity : BaseActivity() {
             adapter = selectedImagesAdapter
         }
     }
-
-
-
     private fun loadImages() {
         val uri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -153,7 +154,6 @@ class SelectActivity : BaseActivity() {
         } else {
             "${MediaStore.Images.Media.BUCKET_DISPLAY_NAME} = ?" to arrayOf(albumName)
         }
-
         contentResolver.query(uri, projection, selection, selectionArgs, "${MediaStore.Images.Media.DATE_TAKEN} DESC")?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
@@ -177,7 +177,7 @@ class SelectActivity : BaseActivity() {
                     )
                 )
             }
-            imageAdapter.notifyDataSetChanged() // Notify adapter to update UI
+            imageAdapter.notifyDataSetChanged()
         } ?: run {
             Toast.makeText(this, "Failed to load images", Toast.LENGTH_SHORT).show()
         }
@@ -217,9 +217,4 @@ class SelectActivity : BaseActivity() {
          }
          dialog2.show()
     }
-
-
-
-
-
 }

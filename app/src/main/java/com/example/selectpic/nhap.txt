@@ -1,125 +1,458 @@
 package com.example.selectpic
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.database.Cursor
-import android.net.Uri
-import android.os.Build
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.provider.MediaStore
+import android.view.View
 import android.widget.Toast
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.selectpic.databinding.ActivitySelectBinding
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
+import com.example.selectpic.databinding.ActivityHomeCollageBinding
+import com.example.selectpic.ddat.MediaStoreMediaImages
+import com.example.selectpic.ddat.PuzzleUtils
+import com.example.selectpic.ddat.RepoPuzzleUtils
+import com.example.selectpic.ddat.RepositoryMediaImages
+import com.example.selectpic.ddat.UseCaseMediaImageDetail
+import com.example.selectpic.ddat.UseCasePuzzleLayouts
+import com.example.selectpic.ddat.ViewModelMediaImageDetail
+import com.example.selectpic.ddat.ViewModelMediaImageDetailProvider
+import com.hypersoft.puzzlelayouts.app.features.layouts.presentation.adapter.AdapterPuzzleLayoutsPieces
+import com.hypersoft.puzzlelayouts.app.features.layouts.presentation.viewmodels.ViewModelPuzzleLayouts
+import com.hypersoft.puzzlelayouts.app.features.layouts.presentation.viewmodels.ViewModelPuzzleLayoutsProvider
+import com.hypersoft.pzlayout.interfaces.PuzzleLayout
+import com.hypersoft.pzlayout.utils.PuzzlePiece
+import com.hypersoft.pzlayout.view.PuzzleView
 
-class SelectActivity : BaseActivity() {
-    private val binding by lazy { ActivitySelectBinding.inflate(layoutInflater) }
-    private val imagePaths = mutableListOf<String>()
-    private val selectedImagesList = mutableListOf<Uri>()
-    private lateinit var imageAdapter: ImageAdapter
-    private lateinit var selectedImagesAdapter: SelectedImagesAdapter
-    private lateinit var pickImagesLauncher: ActivityResultLauncher<PickVisualMediaRequest>
+class HomeCollage : BaseActivity(), PuzzleView.OnPieceClick, PuzzleView.OnPieceSelectedListener {
+    private val binding by lazy { ActivityHomeCollageBinding.inflate(layoutInflater) }
+    private val mediaStoreMediaImages by lazy { MediaStoreMediaImages(contentResolver) }
+    private val useCaseMediaImageDetail by lazy { UseCaseMediaImageDetail(RepositoryMediaImages(mediaStoreMediaImages)) }
+    private val viewModelMediaImageDetail by viewModels<ViewModelMediaImageDetail> { ViewModelMediaImageDetailProvider(useCaseMediaImageDetail) }
+    private val viewModelPuzzleLayouts by viewModels<ViewModelPuzzleLayouts> { ViewModelPuzzleLayoutsProvider(UseCasePuzzleLayouts(RepoPuzzleUtils(PuzzleUtils()))) }
 
-    val storagePer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
-    else arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
-
-    private val checkPermission =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            if (permissions.all { it.value }) {
-                loadImages()
-            }
-        }
+    private var mList: List<ImageModel> = mutableListOf()
+    private val adapterPuzzleLayoutsPieces by lazy { AdapterPuzzleLayoutsPieces(itemClick) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
-        binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        val gridLayoutManager = GridLayoutManager(this, 3)
-        binding.allImagesRecyclerView.layoutManager = gridLayoutManager
 
-          pickImagesLauncher = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(9)) { uris ->
-            if (uris.isNotEmpty()) {
-                selectedImagesList.clear()
-                selectedImagesList.addAll(uris)
-                selectedImagesAdapter.notifyDataSetChanged()
-                updateSelectedCount()
-                imageAdapter.updateSelection(selectedImagesList)
+        val selectedImages: ArrayList<ImageModel>? = intent.getParcelableArrayListExtra("SELECTED_IMAGES")
+        selectedImages?.let {
+            mList = it
+            fetchLayouts(it)
+            checkImageSizeAndSetLayouts(it)
+        } ?: Toast.makeText(this, "No images selected", Toast.LENGTH_SHORT).show()
+
+        setupListeners()
+        initObservers()
+    }
+
+    private val itemClick: ((PuzzleLayout, theme: Int) -> Unit) = { _, theme ->
+        viewModelPuzzleLayouts.getPuzzleLayout(1, mList.size, theme)
+    }
+
+    private fun initObservers() {
+        viewModelMediaImageDetail.clickedImagesLiveData.observe(this) {
+            mList = it
+            if (mList.isEmpty()) {
+                Toast.makeText(this, "No images", Toast.LENGTH_SHORT).show()
+            } else {
+                fetchLayouts(it)
+                checkImageSizeAndSetLayouts(it)
             }
         }
-            if (checkStoragePermission()) {
-            loadImages()
-        } else {
-            checkPermission.launch(storagePer)
-        }
-
-        setupSelectedImagesRecyclerView()
-
-        binding.btnAlbum.setOnClickListener {
-            pickImagesLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        }
-        binding.clearImgList.setOnClickListener {
-            selectedImagesList.clear()
-            selectedImagesAdapter.notifyDataSetChanged()
-            updateSelectedCount()
-            imageAdapter.updateSelection(selectedImagesList)
-        }
+        viewModelPuzzleLayouts.puzzleLayoutLiveData.observe(this) { initView(it) }
+        viewModelPuzzleLayouts.puzzleLayoutsLiveData.observe(this) { adapterPuzzleLayoutsPieces.setPuzzleLayouts(it) }
     }
 
-    private fun setupSelectedImagesRecyclerView() {
-        selectedImagesAdapter = SelectedImagesAdapter(selectedImagesList)
-        binding.selectedImagesRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@SelectActivity, LinearLayoutManager.HORIZONTAL, false)
-            adapter = selectedImagesAdapter
+    private fun initView(list: PuzzleLayout) = binding.puzzleView.apply {
+        setPuzzleLayout(list)
+        isTouchEnable = true
+        lineSize = 6
+        lineColor = Color.BLACK
+        selectedLineColor = ContextCompat.getColor(context, R.color.black)
+        setHandleBarColor(ContextCompat.getColor(context, R.color.black))
+        setAnimateDuration(700)
+        piecePadding = 10f
+        setOnPieceClickListener(this@HomeCollage)
+        setOnPieceSelectedListener(this@HomeCollage)
+        post { loadPhotoFromRes(list) }
+    }
+
+    private fun setupListeners() = binding.apply {
+        listOf(pmirror to ::mirror, pflip to ::flip, protate to ::rotate,
+            pzoomplus to ::zoomPlus, pzoomminus to ::zoomMinus,
+            pleft to ::left, pright to ::right, pup to ::up, pdown to ::down).forEach { (view, action) ->
+            view.setOnClickListener { action() }
         }
+        btnCorner.setOnClickListener { corner() }
     }
 
-    private fun updateSelectedCount() {
-        binding.textViewCountItem.text = selectedImagesList.size.toString()
-    }
+    private fun loadPhotoFromRes(list: PuzzleLayout) {
+        val count = minOf(mList.size, list.areaCount)
+        val pieces = mutableListOf<Bitmap>()
 
-    private fun checkStoragePermission(): Boolean {
-        return storagePer.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    private fun loadImages() {
-        val uri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(MediaStore.Images.Media.DATA)
-
-        val cursor: Cursor? = contentResolver.query(uri, projection, null, null, null)
-        cursor?.use {
-            val columnIndex = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-            while (it.moveToNext()) {
-                val imagePath = it.getString(columnIndex)
-                imagePaths.add(imagePath)
-            }
-            imagePaths.reverse()
-
-            imageAdapter = ImageAdapter(this, imagePaths) { uri, isSelected ->
-                val uriFromPath = Uri.parse(uri.toString())
-
-                if (isSelected) {
-                    if (!selectedImagesList.contains(uriFromPath) && selectedImagesList.size < 9) {
-                        selectedImagesList.add(uriFromPath)
-                        selectedImagesAdapter.notifyDataSetChanged()
-                        updateSelectedCount()
-                        imageAdapter.updateSelection(selectedImagesList)
+        for (i in 0 until count) {
+            val target: CustomTarget<Bitmap> = object : CustomTarget<Bitmap>() {
+                override fun onResourceReady(bitmap: Bitmap, transition: Transition<in Bitmap?>?) {
+                    pieces.add(bitmap)
+                    if (pieces.size == count) {
+                        val remainingPieces = if (mList.size < list.areaCount) List(list.areaCount) { pieces[it % count] } else pieces
+                        binding.puzzleView.addPieces(remainingPieces)
                     }
-                } else {
-                    selectedImagesList.remove(uriFromPath)
-                    selectedImagesAdapter.notifyDataSetChanged()
-                    updateSelectedCount()
-                    imageAdapter.updateSelection(selectedImagesList)
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) {}
+                override fun onLoadFailed(errorDrawable: Drawable?) {
+                    Toast.makeText(this@HomeCollage, "Failed to load image", Toast.LENGTH_SHORT).show()
                 }
             }
-            binding.allImagesRecyclerView.adapter = imageAdapter
+            Glide.with(this).asBitmap().load(mList[i].uri).into(target)
         }
     }
+
+    private fun fetchLayouts(images: List<ImageModel>) {
+        viewModelPuzzleLayouts.getPuzzleLayouts(images.size)
+    }
+
+    private fun checkImageSizeAndSetLayouts(images: List<ImageModel>) {
+        val size = images.size
+        if (size in 1..9) {
+            val layoutImages = if (size == 1) listOf(images[0], images[0]) else images
+            viewModelPuzzleLayouts.getPuzzleLayout(1, layoutImages.size, 0)
+        }
+    }
+
+    private fun mirror() = handlePuzzleAction {binding.puzzleView.mirrorPiece() }
+    private fun flip() = handlePuzzleAction { binding.puzzleView.flipPiece() }
+    private fun rotate() = handlePuzzleAction { binding.puzzleView.rotatePiece() }
+    private fun zoomPlus() = handlePuzzleAction { binding.puzzleView.zoomInPiece() }
+    private fun zoomMinus() = handlePuzzleAction { binding.puzzleView.zoomOutPiece() }
+    private fun left() = handlePuzzleAction { binding.puzzleView.moveLeft() }
+    private fun right() = handlePuzzleAction { binding.puzzleView.moveRight() }
+    private fun up() = handlePuzzleAction { binding.puzzleView.moveUp() }
+    private fun down() = handlePuzzleAction { binding.puzzleView.moveDown() }
+
+    private fun corner() = binding.apply {
+        seekbar.visibility = View.VISIBLE
+        seekbar.max = 100
+        seekbar.progress = puzzleView.getPieceRadian().toInt()
+    }
+
+    private fun handlePuzzleAction(action: () -> Unit) {
+        if (binding.puzzleView.handlingPiecePosition != -1) {
+            action()
+        } else {
+            Toast.makeText(this, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onPieceClick() {}
+    override fun onSwapGetPositions(pos1: Int, pos2: Int) {}
+    override fun onPieceSelected(piece: PuzzlePiece?, position: Int) {}
+}
+
+
+
+
+package com.example.selectpic
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.Drawable
+import android.os.Bundle
+import android.view.View
+import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
+import com.example.selectpic.databinding.ActivityHomeCollageBinding
+import com.example.selectpic.ddat.MediaStoreMediaImages
+import com.example.selectpic.ddat.PuzzleUtils
+import com.example.selectpic.ddat.RepoPuzzleUtils
+import com.example.selectpic.ddat.RepositoryMediaImages
+import com.example.selectpic.ddat.UseCaseMediaImageDetail
+import com.example.selectpic.ddat.UseCasePuzzleLayouts
+import com.example.selectpic.ddat.ViewModelMediaImageDetail
+import com.example.selectpic.ddat.ViewModelMediaImageDetailProvider
+import com.hypersoft.puzzlelayouts.app.features.layouts.presentation.adapter.AdapterPuzzleLayoutsPieces
+import com.hypersoft.puzzlelayouts.app.features.layouts.presentation.viewmodels.ViewModelPuzzleLayouts
+import com.hypersoft.puzzlelayouts.app.features.layouts.presentation.viewmodels.ViewModelPuzzleLayoutsProvider
+import com.hypersoft.pzlayout.interfaces.PuzzleLayout
+import com.hypersoft.pzlayout.utils.PuzzlePiece
+import com.hypersoft.pzlayout.view.PuzzleView
+
+class HomeCollage : BaseActivity(),  PuzzleView.OnPieceClick, PuzzleView.OnPieceSelectedListener {
+   private val binding by lazy { ActivityHomeCollageBinding.inflate(layoutInflater) }
+    private val mediaStoreMediaImages by lazy { MediaStoreMediaImages(contentResolver) }
+    private val repositoryMediaImages by lazy { RepositoryMediaImages(mediaStoreMediaImages) }
+    private val useCaseMediaImageDetail by lazy { UseCaseMediaImageDetail(repositoryMediaImages) }
+    private val viewModelMediaImageDetail by viewModels<ViewModelMediaImageDetail> { ViewModelMediaImageDetailProvider(useCaseMediaImageDetail) }
+
+
+    private val puzzleLayout by lazy { PuzzleUtils() }
+    private val repoPuzzleUtils by lazy { RepoPuzzleUtils(puzzleLayout) }
+    private val useCasePuzzleLayouts by lazy { UseCasePuzzleLayouts(repoPuzzleUtils) }
+    private val viewModelPuzzleLayouts by viewModels<ViewModelPuzzleLayouts> { ViewModelPuzzleLayoutsProvider(useCasePuzzleLayouts) }
+
+    private var mList: List<ImageModel> = mutableListOf()
+    private val adapterPuzzleLayoutsPieces by lazy { AdapterPuzzleLayoutsPieces(itemClick) }
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+       setContentView(binding.root)
+        // Lấy danh sách ảnh được chọn từ Intent
+        val selectedImages: ArrayList<ImageModel>? = intent.getParcelableArrayListExtra("SELECTED_IMAGES")
+
+        // Nếu có ảnh, khởi tạo layout và hiển thị ảnh lên PuzzleView
+        if (!selectedImages.isNullOrEmpty()) {
+            mList = selectedImages
+            fetchLayouts(selectedImages)
+            checkImageSizeAndSetLayouts(selectedImages)
+        } else {
+            Toast.makeText(this, "No images selected", Toast.LENGTH_SHORT).show()
+        }
+
+        setupListeners()
+        initObservers()
+    }
+    private val itemClick: ((PuzzleLayout, theme: Int) -> Unit) = { puzzleLayout, theme ->
+        viewModelPuzzleLayouts.getPuzzleLayout(1, mList.size, theme)
+    }
+    private fun initObservers() {
+        viewModelMediaImageDetail.clickedImagesLiveData.observe(this) {
+            mList = it
+//            fetchLayouts(it)
+//            checkImageSizeAndSetLayouts(it)
+            if (mList.isEmpty()) {
+                Toast.makeText(this, "No images", Toast.LENGTH_SHORT).show()
+            } else {
+                fetchLayouts(it)
+                checkImageSizeAndSetLayouts(it)
+            }
+        }
+        viewModelPuzzleLayouts.puzzleLayoutLiveData.observe(this) { list ->
+            initView(list)
+        }
+        viewModelPuzzleLayouts.puzzleLayoutsLiveData.observe(this) { list ->
+            adapterPuzzleLayoutsPieces.setPuzzleLayouts(list)
+        }
+    }
+    private fun initView(list: PuzzleLayout) {
+        binding.puzzleView.apply {
+            setPuzzleLayout(list)
+
+            isTouchEnable = true
+            needDrawLine = false
+            needDrawOuterLine = false
+            lineSize = 6
+            lineColor = Color.BLACK
+            selectedLineColor = ContextCompat.getColor(context, R.color.black)
+            setHandleBarColor(ContextCompat.getColor(context, R.color.black))
+            setAnimateDuration(700)
+            piecePadding = 10f
+            setOnPieceClickListener(this@HomeCollage)
+            setOnPieceSelectedListener(this@HomeCollage)
+
+            post {
+                loadPhotoFromRes(list)
+            }
+        }
+    }
+    private fun setupListeners() = binding.apply {
+        pmirror.setOnClickListener { mirror() }
+        pflip.setOnClickListener { flip() }
+        protate.setOnClickListener { rotate() }
+        pzoomplus.setOnClickListener { zoomPlus() }
+        pzoomminus.setOnClickListener { zoomMinus() }
+        pleft.setOnClickListener { left() }
+        pright.setOnClickListener { right() }
+        pup.setOnClickListener { up() }
+        pdown.setOnClickListener { down() }
+        btnCorner.setOnClickListener { corner() }
+    }
+    private fun loadPhotoFromRes(list: PuzzleLayout) {
+        val pieces: MutableList<Bitmap> = ArrayList()
+
+        // Determine the number of images to load
+        val count = if (mList.size > list.areaCount) list.areaCount else mList.size
+
+        for (i in 0 until count) {
+            val target: CustomTarget<Bitmap> = object : CustomTarget<Bitmap>() {
+                override fun onResourceReady(bitmap: Bitmap, transition: Transition<in Bitmap?>?) {
+                    pieces.add(bitmap)
+                    if (pieces.size == count) {
+                        if (mList.size < list.areaCount) {
+                            for (q in 0 until list.areaCount) {
+                                binding.puzzleView.addPiece(pieces[i % count])
+                            }
+                        } else {
+                            binding.puzzleView.addPieces(pieces)
+                        }
+                    }
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) {
+                    // Handle the case where the view is no longer visible or memory needs to be cleared
+                }
+
+                override fun onLoadFailed(errorDrawable: Drawable?) {
+                    // Handle errors (e.g., log or display a fallback drawable)
+                }
+            }
+
+            // Load image resource using Glide
+            Glide.with(this).asBitmap().load(mList[i].uri).into(target)
+        }
+    }
+
+    private fun fetchLayouts(it: List<ImageModel>) {
+        viewModelPuzzleLayouts.getPuzzleLayouts(it.size)
+    }
+
+    private fun checkImageSizeAndSetLayouts(it: List<ImageModel>) {
+        when (it.size) {
+            1 -> {
+                val selected = it[0]
+                val imageList = listOf(selected, selected)
+                viewModelPuzzleLayouts.getPuzzleLayout(1, imageList.size, 0)
+            }
+
+            2 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            3 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            4 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            5 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            6 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            7 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            8 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            9 -> {
+                viewModelPuzzleLayouts.getPuzzleLayout(1, it.size, 0)
+            }
+
+            else -> {
+
+            }
+        }
+    }
+
+
+    private fun mirror() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.mirrorPiece()
+        } else {
+            Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun flip() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.flipPiece()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun rotate() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.rotatePiece()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun zoomPlus() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.zoomInPiece()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun zoomMinus() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.zoomOutPiece()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun left() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.moveLeft()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun right() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.moveRight()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun up() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.moveUp()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun down() = binding.apply {
+        if (puzzleView.handlingPiecePosition != -1) {
+            puzzleView.moveDown()
+        } else {
+             Toast.makeText(this@HomeCollage, R.string.selectsingleimage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun corner() = binding.apply {
+        seekbar.visibility = View.VISIBLE
+        seekbar.max = 100
+        seekbar.progress = puzzleView.getPieceRadian().toInt()
+    }
+    override fun onPieceClick() {}
+    override fun onSwapGetPositions(pos1: Int, pos2: Int) {}
+    override fun onPieceSelected(piece: PuzzlePiece?, position: Int) {}
+
+
 }
