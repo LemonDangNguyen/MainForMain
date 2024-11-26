@@ -159,4 +159,5 @@ class SelectAlbum : BaseActivity() {
         }
         dialog2.show()
     }
+    //up test
 }
